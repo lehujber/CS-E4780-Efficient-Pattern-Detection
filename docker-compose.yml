@@ -2,6 +2,8 @@ services:
   kafka:
     image: apache/kafka:4.1.0
     container_name: kafka
+    logging:
+      driver: "none"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -53,13 +55,16 @@ services:
       INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
       TOPIC_PARTITIONS: 1
       LOG_TRIPS: false
-      BURST_SIZE: 1000
-      BURST_MIN_SLEEP_MS: 10
+      BURST_SIZE: 100
+      BURST_MIN_SLEEP_MS: 1000
       DATA_FOLDER_PATH: /data/
     volumes:
-      - ./data/202508/202508-citibike-tripdata_1.csv:/data/data.csv
+      - ./data/2018/201801-citibike-tripdata.csv:/data/data.csv
+      # - ./data/202508/202508-citibike-tripdata_1.csv:/data/data.csv
       # - ./data/202508/:/data/
     depends_on:
+      kafka:
+        condition: service_healthy
       kafka-init-topic:
         condition: service_completed_successfully
     networks:
@@ -77,6 +82,27 @@ services:
       TOPIC_PARTITIONS: 1
     depends_on:
       kafka:
+        condition: service_healthy
+      kafka-init-topic:
+        condition: service_completed_successfully
+    networks:
+      - kafka-network
+
+  opencep:
+    build:
+      context: ./openCEP
+      dockerfile: Dockerfile
+    container_name: opencep
+    environment:
+      KAFKA_SERVER: kafka:9092
+      INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
+      LOG_LEVEL: DEBUG
+      # TOPIC_PARTITIONS: 1
+      # LOGS_ENABLED: false
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topic:
         condition: service_completed_successfully
     networks:
       - kafka-network
