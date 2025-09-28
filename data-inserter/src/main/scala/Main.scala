@@ -6,8 +6,10 @@ import java.time.LocalDateTime
 
 @main def main(): Unit ={
   val kafkaServer = sys.env.getOrElse("KAFKA_SERVER", "localhost:9092")
-  val topicName = sys.env.getOrElse("TOPIC_NAME", "citibike-trips")
+  val ingestTopic = sys.env.getOrElse("INGEST_TOPIC", "citibike-trips")
+  val metricsTopic = sys.env.getOrElse("INSERTER_METRICS_TOPIC", "inserter-metrics")
   val partitions = sys.env.getOrElse("TOPIC_PARTITIONS", "1").toInt
+
 
   val logTrips = sys.env.getOrElse("LOG_TRIPS", "false").toBoolean
 
@@ -30,7 +32,7 @@ import java.time.LocalDateTime
 
   val producer = KafkaProducer(props)
 
-  val inserters = readers.map(reader => KafkaInserter(producer, topicName, partitions, logTrips, burstSize, burstMinSleepMs, reader))
+  val inserters = readers.map(reader => KafkaInserter(producer, ingestTopic, metricsTopic, partitions, logTrips, burstSize, burstMinSleepMs, reader))
 
   val count = inserters.map(_.run()).sum
 
@@ -41,7 +43,8 @@ import java.time.LocalDateTime
 
 case class KafkaInserter(
   kafka: KafkaProducer[Object,Object],
-  topicName: String, 
+  ingestTopic: String, 
+  metricsTopic: String,
   partitions: Int, 
   logTrips: Boolean, 
   burstSize: Int, 
@@ -58,10 +61,15 @@ case class KafkaInserter(
     // sendMessage(rowIterator.next()) 
 
     var count: BigInt = 0
+    val startTime = LocalDateTime.now()
     for (group <- rowIterator.grouped(burstSize)) {
       count += group.size
       group.foreach(rec => sendMessage(rec))
-      println("Timeout before sending next burst...")
+      if (logTrips) {
+        println("Timeout before sending next burst...")
+      }
+      val endTime = LocalDateTime.now()
+      kafka.send(ProducerRecord(metricsTopic,s"${startTime.toString()}, ${endTime.toString()}"))
       Thread.sleep(burstMinSleepMs)
     }
 
@@ -71,7 +79,7 @@ case class KafkaInserter(
   def sendMessage(rec: Seq[String]): Unit = {
     try {
       val msg = rec.mkString(", ")
-      kafka.send(ProducerRecord(topicName,msg))
+      kafka.send(ProducerRecord(ingestTopic,msg))
       if (logTrips) {
         println(s"Sent message: $msg")
       }
