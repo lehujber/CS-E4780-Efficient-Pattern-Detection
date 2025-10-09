@@ -31,6 +31,7 @@ class KafkaStream(InputStream):
             for message in self.consumer:
                 if not self.consuming:
                     break
+                # print(f"Received message: {message.value}", flush=True)
                 self._stream.put(message.value.decode('utf-8') if isinstance(message.value, bytes) else message.value)
         except Exception as e:
             print(f"Error consuming messages: {e}", flush=True)
