@@ -54,11 +54,12 @@ services:
       KAFKA_SERVER: kafka:9092
       INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
       TOPIC_PARTITIONS: 1
-      LOG_TRIPS: true
+      LOG_TRIPS: false
       BURST_SIZE: 1000
       BURST_MIN_SLEEP_MS: 0
       DATA_FOLDER_PATH: /data/
     volumes:
+      # - ./data/test/test_10k.csv:/data/data.csv
       - ./data/2018/201801-citibike-tripdata.csv:/data/data.csv
       # - ./data/202508/202508-citibike-tripdata_1.csv:/data/data.csv
       # - ./data/202508/:/data/
@@ -78,7 +79,8 @@ services:
     environment:
       KAFKA_SERVER: kafka:9092
       INGEST_TOPIC: ${INSERTER_METRICS_TOPIC:-inserter-metrics}
-      LOG_LEVEL: info
+      MATCHES_TOPIC: ${MATCHES_TOPIC:-matches}
+      LOG_BURSTS: false
       TOPIC_PARTITIONS: 1
     depends_on:
       kafka:
@@ -96,7 +98,9 @@ services:
     environment:
       KAFKA_SERVER: kafka:9092
       INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
+      MATCHES_TOPIC: ${MATCHES_TOPIC:-matches}
       LOG_LEVEL: DEBUG
+      WORKER_THREADS: 4
       # TOPIC_PARTITIONS: 1
       # LOGS_ENABLED: false
     depends_on:

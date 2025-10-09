@@ -1,2 +1,3 @@
 INGEST_TOPIC=data-ingest
 INSERTER_METRICS_TOPIC=inserter-metrics
+MATCHES_TOPIC=matches

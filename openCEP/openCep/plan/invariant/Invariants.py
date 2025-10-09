@@ -1,5 +1,9 @@
 from abc import ABC, abstractmethod
-from collections import Callable
+try:
+    from collections.abc import Callable
+except Exception:
+    # fallback for very old Python versions 
+    from collections import Callable
 
 from base.Pattern import Pattern
 from misc.LegacyStatistics import MissingStatisticsException

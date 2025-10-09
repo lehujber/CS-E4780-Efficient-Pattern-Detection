@@ -1,102 +1,87 @@
 from datetime import timedelta
 from CEP import CEP
-# plan / base / condition / stream / plugin imports:
 from base.PatternStructure import PrimitiveEventStructure
 from base.Pattern import Pattern
 from base.PatternStructure import SeqOperator
 from condition.CompositeCondition import AndCondition
-from condition.BaseRelationCondition import SmallerThanCondition, EqCondition
+from condition.BaseRelationCondition import EqCondition
 from condition.Condition import Variable
 from stream.FileStream import FileInputStream
 from stream.FileStream import FileOutputStream
 from plugin.cityBike.cityBike import CitiBikeCSVFormatter
 
-from base.PatternStructure import KleeneClosureOperator  # + add this
-from condition.Condition import SimpleCondition   
+# PERFORMANCE: Disable optimizer and configure fast cleanup + parallel execution
+from evaluation.EvaluationMechanismFactory import TreeBasedEvaluationMechanismParameters
+from tree.PatternMatchStorage import TreeStorageParameters
+from adaptive.optimizer.OptimizerFactory import OptimizerParameters
+from adaptive.optimizer.OptimizerTypes import OptimizerTypes
+from parallel.ParallelExecutionParameters import DataParallelExecutionParametersHirzelAlgorithm
+from parallel.ParallelExecutionPlatforms import ParallelExecutionPlatforms
 
-# Example pattern from README: GOOG price strictly increasing within 3 minutes
-from condition.KCCondition import KCIndexCondition   # <— new import
-from condition.BaseRelationCondition import BinaryCondition
-from condition.Condition import SimpleCondition, Variable
+# Simple 3-station path query - FASTER
+# SASE: EVENT SEQ(Bike a, Bike b, Bike c)
+# WHERE [bike_id] && a.end_station_id == b.start_station_id && 
+#       b.end_station_id == c.start_station_id
+# WITHIN 1h
 
-# hotPathsPattern = Pattern(
-#     SeqOperator(
-#         KleeneClosureOperator(PrimitiveEventStructure("BikeTrip", "a")),
-#         PrimitiveEventStructure("BikeTrip", "b"),
-#     ),
-#     AndCondition(
-#         # 1) same bike across the a[] chain: a[i].bike == a[i-1].bike
-#         KCIndexCondition(
-#             names={'a'},
-#             getattr_func=lambda e: e["bike"],
-#             relation_op=lambda cur, prev: cur == prev,
-#             offset=-1
-#         ),
-#         # 2) station continuity across the chain: a[i].start == a[i-1].end
-#         KCIndexCondition(
-#             names={'a'},
-#             getattr_func=lambda e: (e["start"], e["end"]),
-#             relation_op=lambda cur, prev: cur[0] == prev[1],
-#             offset=-1
-#         ),
-#         # 3) last(a).bike == b.bike - FIXED: added relation_op parameter
-#         BinaryCondition(
-#             Variable("a", lambda e: e["bike"]),
-#             Variable("b", lambda e: e["bike"]),
-#             relation_op=lambda a_bike, b_bike: a_bike == b_bike
-#         ),
-#         # 4) b ends at a hot station - FIXED: use integers instead of floats
-#         SimpleCondition(
-#             Variable("b", lambda b: b["end"]),
-#             relation_op=lambda end_station: end_station in {505, 3255, 525} 
-#         )
-#     ),
-#     timedelta(hours=1)
-# )
-WINDOW = timedelta(hours=1)
-
-hotPaths = Pattern(
-  SeqOperator(
-    KleeneClosureOperator(PrimitiveEventStructure("BikeTrip","a"), min_size=1, max_size=4),
-    PrimitiveEventStructure("BikeTrip","b"),
-  ),
-  AndCondition(
-    # 1) Cheapest & most selective filters on b first
-    # SimpleCondition(
-    #     Variable("b", lambda e: e["end"]),
-    #     relation_op=lambda s: s == 293
-    # ),
-    # 2) Cheap joins tying b to the last a
-    EqCondition(
-        Variable("a", lambda a: a[-1]["end"]),
-        Variable("b", lambda e: e["start"])
+threeStationPattern = Pattern(
+    # Structure: Simple sequence of exactly 3 BikeTrip events
+    SeqOperator(
+        PrimitiveEventStructure("BikeTrip", "a"),
+        PrimitiveEventStructure("BikeTrip", "b"),
+        PrimitiveEventStructure("BikeTrip", "c")
     ),
-    EqCondition(
-        Variable("a", lambda a: a[-1]["bike"]),
-        Variable("b", lambda e: e["bike"])
+    # Conditions
+    AndCondition(
+        # All must use the same bike_id
+        EqCondition(
+            Variable("a", lambda e: e["bike"]),
+            Variable("b", lambda e: e["bike"])
+        ),
+        EqCondition(
+            Variable("b", lambda e: e["bike"]),
+            Variable("c", lambda e: e["bike"])
+        ),
+        # Contiguous trips: a.end == b.start
+        EqCondition(
+            Variable("a", lambda e: e["end"]),
+            Variable("b", lambda e: e["start"])
+        ),
+        # b.end == c.start
+        EqCondition(
+            Variable("b", lambda e: e["end"]),
+            Variable("c", lambda e: e["start"])
+        )
     ),
-    # 3) Heavier KC checks over the whole a-chain last
-    KCIndexCondition(
-        names={'a'},
-        getattr_func=lambda e: e["bike"],
-        relation_op=lambda cur, prev: cur == prev,
-        offset=-1
-    ),
-    KCIndexCondition(
-        names={'a'},
-        getattr_func=lambda e: (e["start"], e["end"]),
-        relation_op=lambda cur, prev: cur[0] == prev[1],
-        offset=-1
-    )
-  ),
-  WINDOW
+    timedelta(hours=1)
 )
 
+# CRITICAL PERFORMANCE FIX: Disable optimizer and increase cleanup frequency
+storage_params = TreeStorageParameters(
+    sort_storage=False,  # No sorting overhead
+    clean_up_interval=5  # Clean up expired matches every 5 additions (default is 10)
+)
+
+eval_params = TreeBasedEvaluationMechanismParameters(
+    storage_params=storage_params,
+)
+
+# PARALLEL EXECUTION: Partition by bike_id to process each bike independently
+# This uses Hirzel's group-by-key algorithm with threading
+import multiprocessing
+num_workers = 1000 # max(2, multiprocessing.cpu_count() // 2)  # Use half of available cores
+
+parallel_params = DataParallelExecutionParametersHirzelAlgorithm(
+    platform=ParallelExecutionPlatforms.THREADING,
+    units_number=num_workers,
+    key="bike"  # Partition by bike_id
+)
 
 if __name__ == "__main__":
-    cep = CEP([hotPaths])
-    # Use included demo data and write matches to test/Matches/output.txt
-    events = FileInputStream("test/EventFiles/201801-citibike-tripdata.csv")
-    cep.run(events, FileOutputStream("test/Matches", "output.txt"), CitiBikeCSVFormatter())
+    cep = CEP([threeStationPattern], eval_params, parallel_params)
 
-    print("Done. See test/Matches/output.txt")
+    # Use included demo data
+    events = FileInputStream("test/EventFiles/201801-citibike-tripdata.csv")
+    cep.run(events, FileOutputStream("test/Matches", "output.txt", console_output=True), CitiBikeCSVFormatter())
+
+    print("Done. Check test/Matches/output.txt for matches")

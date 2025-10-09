@@ -36,6 +36,9 @@ import java.time.LocalDateTime
 
   val count = inserters.map(_.run()).sum
 
+  producer.send(ProducerRecord(ingestTopic,"EOS"))
+  producer.flush()
+
   println("Produces successfully finished sending data to Kafka")
   println(s"Total number of messages send: ${count}")
   println(s"Number of files processed: ${files.length}")

@@ -11,3 +11,9 @@
   --bootstrap-server kafka:9092 \
   --partitions 1 \
   --replication-factor 1
+
+/opt/kafka/bin/kafka-topics.sh --create --if-not-exists \
+  --topic "${MATCHES_TOPIC:-matches}" \
+  --bootstrap-server kafka:9092 \
+  --partitions 1 \
+  --replication-factor 1

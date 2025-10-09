@@ -1,4 +1,35 @@
 # OpenCEP
+
+# Bikes for Scalable project
+
+Use `python3.8` or `python3.9`
+
+Run test on first 10k lines:
+```python
+python3.9 test_fixed_query_10k.py
+```
+
+Expected output:
+```
+Completed in 0.85 seconds
+Processing rate: 11741 events/second
+Check test/Matches/test_10k_output.txt for matches
+Found 335.0 matches in 10K events
+```
+
+Run whole dataset (takes around 1m 30s):
+```python
+python3.9 bike_query.py
+```
+- Results in `test/Matches/output.txt`
+- If you want to show matches on terminal, set `console_output=True`in `bike_query.py:84`
+- If there is no input file, put `201801-citibike-tripdata_1.csv` in `OpenCEP/test/EventFiles/` and run
+    ```python
+    python3.9 sort_by_stoptime.py 201801-citibike-tripdata_1.csv 201801-citibike-tripdata_1_sorted.csv
+    ```
+
+
+## Description
 OpenCEP is an open-source library and framework providing advanced complex event processing (CEP) capabilities.
 
 CEP is a prominent technology for robust and high-performance real-time detection of arbitrarily complex patterns in massive data streams. It is widely employed in many areas where extremely large amounts of streaming data are continuously generated and need to be promptly and efficiently analyzed on-the-fly. Online finance, network security monitoring, credit card fraud detection, sensor networks, traffic monitoring, healthcare industry, and IoT applications are among the many examples.
