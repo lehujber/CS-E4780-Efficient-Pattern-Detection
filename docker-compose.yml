@@ -54,9 +54,9 @@ services:
       KAFKA_SERVER: kafka:9092
       INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
       TOPIC_PARTITIONS: 1
-      LOG_TRIPS: false
-      BURST_SIZE: 100
-      BURST_MIN_SLEEP_MS: 1000
+      LOG_TRIPS: true
+      BURST_SIZE: 1000
+      BURST_MIN_SLEEP_MS: 0
       DATA_FOLDER_PATH: /data/
     volumes:
       - ./data/2018/201801-citibike-tripdata.csv:/data/data.csv
@@ -78,7 +78,7 @@ services:
     environment:
       KAFKA_SERVER: kafka:9092
       INGEST_TOPIC: ${INSERTER_METRICS_TOPIC:-inserter-metrics}
-      LOGS_ENABLED: false
+      LOG_LEVEL: info
       TOPIC_PARTITIONS: 1
     depends_on:
       kafka:
