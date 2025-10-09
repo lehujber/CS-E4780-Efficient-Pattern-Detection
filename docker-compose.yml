@@ -2,6 +2,8 @@ services:
   kafka:
     image: apache/kafka:4.1.0
     container_name: kafka
+    logging:
+      driver: "none"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -32,7 +34,8 @@ services:
     image: apache/kafka:4.1.0
     entrypoint: ["/bin/sh", "/init-kafka-topic.sh"]
     environment:
-      TOPIC_NAME: ${TOPIC_NAME:-citibike-trips}
+      TOPIC_NAME: ${INGEST_TOPIC:-data-ingest}
+      INSERTER_METRICS_TOPIC: ${INSERTER_METRICS_TOPIC:-inserter-metrics}
     volumes:
       - ./init-kafka-topic.sh:/init-kafka-topic.sh:ro
     networks:
@@ -49,16 +52,60 @@ services:
     container_name: data-inserter
     environment:
       KAFKA_SERVER: kafka:9092
-      TOPIC_NAME: ${TOPIC_NAME:-citibike-trips}
+      INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
       TOPIC_PARTITIONS: 1
-      LOG_TRIPS: true
+      LOG_TRIPS: false
       BURST_SIZE: 1000
-      BURST_MIN_SLEEP_MS: 10
+      BURST_MIN_SLEEP_MS: 0
       DATA_FOLDER_PATH: /data/
     volumes:
+      # - ./data/test/test_10k.csv:/data/data.csv
+      - ./data/2018/201801-citibike-tripdata.csv:/data/data.csv
       # - ./data/202508/202508-citibike-tripdata_1.csv:/data/data.csv
-      - ./data/202508/:/data/
+      # - ./data/202508/:/data/
     depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topic:
+        condition: service_completed_successfully
+    networks:
+      - kafka-network
+
+  metrics-collector:
+    build:
+      context: ./metrics-collector
+      dockerfile: Dockerfile
+    container_name: metrics-collector
+    environment:
+      KAFKA_SERVER: kafka:9092
+      INGEST_TOPIC: ${INSERTER_METRICS_TOPIC:-inserter-metrics}
+      MATCHES_TOPIC: ${MATCHES_TOPIC:-matches}
+      LOG_BURSTS: false
+      TOPIC_PARTITIONS: 1
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topic:
+        condition: service_completed_successfully
+    networks:
+      - kafka-network
+
+  opencep:
+    build:
+      context: ./openCEP
+      dockerfile: Dockerfile
+    container_name: opencep
+    environment:
+      KAFKA_SERVER: kafka:9092
+      INGEST_TOPIC: ${INGEST_TOPIC:-data-ingest}
+      MATCHES_TOPIC: ${MATCHES_TOPIC:-matches}
+      LOG_LEVEL: DEBUG
+      WORKER_THREADS: 4
+      # TOPIC_PARTITIONS: 1
+      # LOGS_ENABLED: false
+    depends_on:
+      kafka:
+        condition: service_healthy
       kafka-init-topic:
         condition: service_completed_successfully
     networks:
