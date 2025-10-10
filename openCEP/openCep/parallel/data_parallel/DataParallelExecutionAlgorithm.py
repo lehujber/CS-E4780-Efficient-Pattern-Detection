@@ -45,6 +45,15 @@ class DataParallelExecutionAlgorithm(ABC):
         # iterate over all events
         for raw_event in events:
             event = Event(raw_event, data_formatter)
+
+
+            # Count all parsed events for accurate statistics (before distribution to workers)
+            try:
+                from input_shedding import LoadSheddingPolicy as ls
+                ls.count_parsed_event()
+            except:
+                pass
+            
             for unit_id in self._classifier(event):
                 execution_units[unit_id].add_event(raw_event)
 

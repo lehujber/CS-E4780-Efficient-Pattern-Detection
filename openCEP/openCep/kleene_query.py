@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Kleene Query - Configuration for Kleene closure pattern matching.
 """

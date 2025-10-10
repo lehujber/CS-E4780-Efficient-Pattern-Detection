@@ -64,6 +64,15 @@ class TreeBasedEvaluationMechanism(EvaluationMechanism, ABC):
             event = Event(raw_event, data_formatter)
             if event.type not in self._event_types_listeners:
                 continue
+
+            # Load shedding: check if event should be discarded
+            try:
+                from input_shedding import LoadSheddingPolicy as ls
+                if ls.should_shed(event.payload):
+                    continue  # Skip this event
+            except:
+                pass  # Load shedding not enabled
+            
             self.__remove_expired_freezers(event)
 
             if not self.__is_multi_pattern_mode and self.__statistics_collector is not None:

@@ -29,6 +29,13 @@ class KafkaOutputStream(OutputStream):
                 latency_ms = (emission_time - arrival_time) * 1000  # Convert to milliseconds
                 self.latencies.append(latency_ms)
 
+            # Check if load shedding should activate
+            try:
+                from input_shedding import LoadSheddingPolicy as ls
+                ls.check_latency(latency_ms)
+            except:
+                pass  # Load shedding not enabled
+
     def close(self):
         """
         Closes the Kafka producer.

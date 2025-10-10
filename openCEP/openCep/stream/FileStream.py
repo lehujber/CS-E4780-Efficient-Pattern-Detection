@@ -49,6 +49,13 @@ class FileOutputStream(OutputStream):
             emission_time = time.perf_counter()
             latency = (emission_time - arrival_time) * 1000  # Convert to milliseconds
             self.latencies.append(latency)
+
+            # Check if load shedding should activate
+            try:
+                from input_shedding import LoadSheddingPolicy as ls
+                ls.check_latency(latency_ms)
+            except:
+                pass  # Load shedding not enabled
         
         if self.console_output:
             print(item)
@@ -91,3 +98,10 @@ class FileOutputStream(OutputStream):
             with open(latencies_path, 'w') as f:
                 for latency in self.latencies:
                     f.write(f"{latency:.4f}\n")
+                
+        # Print load shedding stats if enabled
+        try:
+            from input_shedding import LoadSheddingPolicy as ls
+            ls.print_stats()
+        except:
+            pass

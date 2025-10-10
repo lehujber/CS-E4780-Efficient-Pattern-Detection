@@ -3,6 +3,7 @@ from stream.InsertStream import InsertStream
 from stream.FileStream import FileOutputStream
 from stream.KafkaOutStream import KafkaOutputStream
 from plugin.cityBike.cityBike import CitiBikeCSVFormatter
+from input_shedding import LoadSheddingPolicy as ls
 
 import threading    
 
@@ -22,6 +23,9 @@ if QUERY_TYPE == "kleene":
 else:
     from bike_query import threeStationPattern as pattern, eval_params, parallel_params
     print("Using three station query", flush=True)
+
+ls.load_probabilities()
+ls.enable(THRESHOLD_MS)
 
 
 def insert_messages(stream: InsertStream, consumer: KafkaConsumer):
@@ -81,6 +85,7 @@ def main():
     print("Insert thread finished, waiting for CEP to complete...", flush=True)
     cep_thread.join()
     print("CEP processing finished.", flush=True)
+
 
 
 
