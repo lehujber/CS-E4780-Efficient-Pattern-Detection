@@ -41,3 +41,13 @@ class PatternMatch:
         """
         if pattern_id not in self.pattern_ids:
             self.pattern_ids.append(pattern_id)
+
+    def get_last_event_arrival_timestamp(self):
+        """
+        Returns the arrival timestamp of the last event in this match.
+        The last event is determined by the event with the maximum timestamp.
+        """
+        if not self.events:
+            return None
+        last_event = max(self.events, key=lambda x: x.max_timestamp)
+        return last_event.arrival_timestamp

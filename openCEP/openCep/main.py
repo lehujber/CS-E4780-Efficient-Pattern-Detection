@@ -1,4 +1,3 @@
-from bike_query import threeStationPattern, eval_params, parallel_params
 from CEP import CEP
 from stream.InsertStream import InsertStream
 from stream.FileStream import FileOutputStream
@@ -12,8 +11,17 @@ from kafka import KafkaConsumer, KafkaProducer
 from config import (
     KAFKA_SERVER, 
     INGEST_TOPIC, 
-    MATCHES_TOPIC
+    MATCHES_TOPIC,
+    QUERY_TYPE
 )
+
+# Import the appropriate query based on QUERY_TYPE
+if QUERY_TYPE == "kleene":
+    from kleene_query import kleenePattern as pattern, eval_params, parallel_params
+    print("Using Kleene closure query", flush=True)
+else:
+    from bike_query import threeStationPattern as pattern, eval_params, parallel_params
+    print("Using three station query", flush=True)
 
 
 def insert_messages(stream: InsertStream, consumer: KafkaConsumer):
@@ -44,7 +52,7 @@ def run_cep(cep: CEP, events: InsertStream, output: FileOutputStream, formatter:
     cep.run(events, output, formatter)
 
 def main():
-    cep = CEP([threeStationPattern], eval_params, parallel_params)
+    cep = CEP([pattern], eval_params, parallel_params)
 
     events = InsertStream()
 

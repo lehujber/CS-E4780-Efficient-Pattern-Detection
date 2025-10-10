@@ -16,7 +16,7 @@ class MatchesConsumer(kafka: KafkaConsumer[String, String], timeout: Duration) e
         }
     }
 
-    private def _totalMatches = AtomicInteger(0)
+    private val _totalMatches = AtomicInteger(0)
 
     def totalMatches: Int = _totalMatches.get
 

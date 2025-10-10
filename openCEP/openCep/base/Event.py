@@ -1,4 +1,5 @@
 from typing import List
+import time
 
 from base.DataFormatter import DataFormatter
 
@@ -17,6 +18,8 @@ class Event:
     HIDDEN_ATTRIBUTE_NAMES = [INDEX_ATTRIBUTE_NAME]
 
     def __init__(self, raw_data: str, data_formatter: DataFormatter):
+        self.arrival_timestamp = time.perf_counter()
+
         self.payload = data_formatter.parse_event(raw_data)
         self.type = data_formatter.get_event_type(self.payload)
         self.min_timestamp = self.max_timestamp = self.timestamp = data_formatter.get_event_timestamp(self.payload)
@@ -25,6 +28,9 @@ class Event:
         if self.probability is not None and (self.probability < 0.0 or self.probability > 1.0):
             raise Exception("Invalid value for probability:%s" % (self.probability,))
         Event.counter += 1
+        
+        # For aggregated events, use the arrival timestamp of the last event
+        self.arrival_timestamp = None if len(events) == 0 else events[-1].arrival_timestamp
 
     def __eq__(self, other):
         return self.payload[Event.INDEX_ATTRIBUTE_NAME] == other.payload[Event.INDEX_ATTRIBUTE_NAME]
@@ -53,12 +59,16 @@ class AggregatedEvent(Event):
         self.type = None if len(events) == 0 else events[0].type  # will not be set correctly for nested Kleene closures
         self.probability = probability
         self.payload = {Event.INDEX_ATTRIBUTE_NAME: Event.counter}
+        Event.counter += 1
 
         self.primitive_events = events
 
         # we assume the events to be sorted in ascending order of arrival
         self.min_timestamp = self.timestamp = None if len(events) == 0 else events[0].timestamp
         self.max_timestamp = None if len(events) == 0 else events[-1].timestamp
+        
+        # Use the arrival timestamp of the last primitive event
+        self.arrival_timestamp = None if len(events) == 0 else events[-1].arrival_timestamp
 
     def __repr__(self):
         return "\n".join([str(e) for e in self.primitive_events])

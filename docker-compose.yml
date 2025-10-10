@@ -101,6 +101,7 @@ services:
       MATCHES_TOPIC: ${MATCHES_TOPIC:-matches}
       LOG_LEVEL: DEBUG
       WORKER_THREADS: 4
+      QUERY_TYPE: ${QUERY_TYPE:-three_station}  # Options: "three_station", "kleene"
       # TOPIC_PARTITIONS: 1
       # LOGS_ENABLED: false
     depends_on:
